@@ -69,6 +69,7 @@ typedef struct {
 	unsigned int n_hidden;
 	Client *hidden;
 	unsigned int bar_height;
+	int bar_y;
 	Window bar;
 	Window cli_win;
 	int screen;
@@ -194,13 +195,13 @@ void render_bar(Wm *wm)
 		size = strlen((char*) cli->name);
 		size = size < MAX_WNAME_CHAR ? size : MAX_WNAME_CHAR;
 		XftTextExtentsUtf8(wm->dpy, wm->xftfont, (unsigned char*) cli->name, size, &extents);
-		XftDrawStringUtf8(xftdraw, &wm->xftcolor, wm->xftfont, extents.x, extents.y + BAR_PADDING, cli->name, size);
+		XftDrawStringUtf8(xftdraw, &wm->xftcolor, wm->xftfont, extents.x, wm->bar_y, cli->name, size);
 	} else {
 		XftTextExtentsUtf8(wm->dpy, wm->xftfont, (unsigned char*) "<no client>", 11, &extents);
-		XftDrawStringUtf8(xftdraw, &wm->xftcolor, wm->xftfont, extents.x, extents.y + BAR_PADDING, (unsigned char*) "<no client>", 11);
+		XftDrawStringUtf8(xftdraw, &wm->xftcolor, wm->xftfont, extents.x, wm->bar_y, (unsigned char*) "<no client>", 11);
 	}
 
-	y = extents.y + BAR_PADDING;
+	y = wm->bar_y;
 
 	/* Workspace thing. */
 	wp = wm->workspaces->prev == NULL ? ' ' : '<';
@@ -274,7 +275,7 @@ void movewin(Wm *wm)
 
 	XGetGeometry(wm->dpy, c->id, &_dumb, &x, &y, &w, &h, &_dumbu, &_dumbu);
 
-	XWarpPointer(wm->dpy, wm->root, wm->root, 0, 0, 0, 0, x, y);
+	XWarpPointer(wm->dpy, wm->root, wm->root, 0, 0, 0, 0, x + w/2, y + h/2);
 	XFlush(wm->dpy);
 
 	XGrabPointer(
@@ -948,6 +949,28 @@ void main_loop(Wm *wm)
 	}
 }
 
+void scan(Wm *wm)
+{
+	unsigned int j, num;
+	Window d1, d2, *wins = NULL;
+	XWindowAttributes wa;
+
+	if (XQueryTree(wm->dpy, wm->root, &d1, &d2, &wins, &num)) {
+		for (j = 0; j < num; j++) {
+			if (!XGetWindowAttributes(wm->dpy, wins[j], &wa))
+				continue;
+			if (wa.override_redirect || wa.map_state != IsViewable)
+				continue;
+			if (wins[j] == wm->bar || wins[j] == wm->cli_win)
+				continue;
+			if (!managed(wm, wins[j]))
+				manage(wm, wins[j]);
+		}
+		if (wins)
+			XFree(wins);
+	}
+}
+
 int main(void)
 {
 	Wm wm;
@@ -985,6 +1008,7 @@ int main(void)
 	XftTextExtentsUtf8(wm.dpy, wm.xftfont, (unsigned char*) "abcdefghijklmnopqrstuvwxyzABCDEFJHIJKLMNOPQRSTUVWXYZ", 52, &extents);
 
 	wm.bar_height = extents.height + BAR_PADDING * 2;
+	wm.bar_y = extents.y + BAR_PADDING;
 	wm.bar = XCreateSimpleWindow(
 		wm.dpy,
 		wm.root,
@@ -1074,7 +1098,7 @@ int main(void)
 
 	wm.wx = wm.sw / 5;
 
-	/* scan(&wm); */
+	scan(&wm);
 	update_status(&wm);
 	render_bar(&wm);
 	main_loop(&wm);
