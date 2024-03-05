@@ -9,9 +9,11 @@ empty. It's click-to-type.
 
 It's possible to put windows in floating mode and hide windows.
 
-## Obligatory screenshot
+## Obligatory screenshots
 
 ![tibaji window manager](screenshot.png)
+
+![tibaji window manager](screenshot2.png)
 
 ## Usage
 

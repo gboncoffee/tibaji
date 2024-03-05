@@ -499,6 +499,8 @@ void unmanage_hidden(Wm *wm, Client *c)
 		c->prev->next = c->next;
 	if (c->next != NULL)
 		c->next->prev = c->prev;
+	if (wm->hidden == c)
+		wm->hidden = c->next;
 }
 
 void unmanage_from_workspace(Wm *wm, Client *c, Workspace *w)
