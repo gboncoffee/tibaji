@@ -125,6 +125,7 @@ void child_handler(int _a)
 typedef struct {
 	Client *c;
 	Workspace *w;
+	short int is_float;
 } FindResult;
 
 FindResult find_window(Wm *wm, Window win)
@@ -135,6 +136,7 @@ FindResult find_window(Wm *wm, Window win)
 
 	r.c = NULL;
 	r.w = NULL;
+	r.is_float = 0;
 
 	for (w = wm->workspaces; w != NULL; w = w->next) {
 		for (c = w->clients; c != NULL; c = c->next) {
@@ -148,6 +150,7 @@ FindResult find_window(Wm *wm, Window win)
 			if (c->id == win) {
 				r.c = c;
 				r.w = w;
+				r.is_float = 1;
 				return r;
 			}
 		}
@@ -917,6 +920,27 @@ void key_press(Wm *wm, XEvent *e)
 	}
 }
 
+void config_request(Wm *wm, XEvent *ev)
+{
+	Window _dumb;
+	int x, y, nx, ny;
+	unsigned int w, h, nw, nh, _dumbi;
+	XConfigureRequestEvent *e = &ev->xconfigurerequest;
+
+	FindResult r = find_window(wm, e->window);
+
+	if (r.c != NULL && r.w != NULL && r.is_float) {
+		XGetGeometry(wm->dpy, e->window, &_dumb, &x, &y, &w, &h, &_dumbi, &_dumbi);
+		x = e->value_mask & CWX ? e->x : x;
+		y = e->value_mask & CWY ? e->y : y;
+		w = e->value_mask & CWWidth ? e->width : w;
+		h = e->value_mask & CWHeight ? e->height : h;
+
+		XMoveResizeWindow(wm->dpy, e->window, x, y, w, h);
+		XSync(wm->dpy, False);
+	}
+}
+
 void handle_event(Wm *wm, XEvent *ev)
 {
 	switch (ev->type) {
@@ -929,6 +953,8 @@ void handle_event(Wm *wm, XEvent *ev)
 	case PropertyNotify:
 		property_notify(wm, ev);
 		break;
+	case ConfigureRequest:
+		config_request(wm, ev);
 	case Expose:
 		expose(wm, ev);
 		break;
